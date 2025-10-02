@@ -213,3 +213,5 @@ cache/
 .DS_Store
 
 ######################### CUSTOM #######################
+checkpoints/*
+videos/*

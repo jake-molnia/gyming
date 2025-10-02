@@ -1,14 +1,9 @@
 {
   description = "dev-env";
   nixConfig = {
-    # Use all available CPU cores for building
     max-jobs = "auto";
-    cores = 0; # 0 means use all available cores
-
-    # Increase download buffer for better network performance
-    download-buffer-size = 538870932; # 256MB buffer
-
-    # Additional performance optimizations
+    cores = 0;
+    download-buffer-size = 538870932;
     keep-outputs = true;
     keep-derivations = true;
   };
@@ -35,9 +30,8 @@
           ];
 
           shellHook = ''
-            echo "Ready!"
-            echo "uv: $(uv --version)"
-            echo "just: $(just --version)"
+            echo "[ installed ] just - $(just --version | awk '{print $2}')"
+            echo "[ installed ] uv - $(uv --version | awk '{print $2}')"
           '';
         };
       }
