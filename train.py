@@ -8,7 +8,7 @@ import gymnasium as gym
 import numpy as np
 import torch
 
-from agents import DQNAgent, PPOAgent
+from agents import DQNAgent, PPOAgent, PPOCustomAgent
 from utils import LivePlot, ReplayMemory, RolloutBuffer, record_video
 
 logging.basicConfig(level=logging.INFO, format="%(message)s", datefmt="%Y-%m-%d %H:%M:%S")
@@ -234,8 +234,107 @@ def train_ppo(
     return agent
 
 
+def train_ppo_custom(
+    env_name: str,
+    total_timesteps: int,
+    n_steps: int,
+    lr: float,
+    gamma: float,
+    gae_lambda: float,
+    clip_epsilon: float,
+    value_coef: float,
+    entropy_coef: float,
+    device: str,
+    save_dir: str,
+    log_interval: int,
+    seed: int | None,
+    plot: bool = False,
+) -> "PPOCustomAgent":
+    """Train custom PPO agent"""
+    from agents import PPOCustomAgent
+
+    logger.info(f"Training Custom PPO on {env_name}")
+
+    reward_plot = LivePlot("Custom PPO - Episode Rewards") if plot else None
+    loss_plot = LivePlot("Custom PPO - Training Loss") if plot else None
+
+    # Create single environment
+    env = gym.make(env_name)
+    if seed is not None:
+        env.reset(seed=seed)
+        env.action_space.seed(seed)
+
+    state, _ = env.reset()
+    n_observations = len(state)
+    n_actions = env.action_space.n
+
+    agent = PPOCustomAgent(n_observations, n_actions, lr, gamma, gae_lambda, clip_epsilon, value_coef, entropy_coef, device)
+
+    global_step = 0
+    episode_rewards = []
+    episode_count = 0
+    current_episode_reward = 0.0
+
+    state = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
+
+    num_updates = total_timesteps // n_steps
+
+    for update in range(1, num_updates + 1):
+        # Rollout phase
+        for _ in range(n_steps):
+            global_step += 1
+
+            action_tensor, log_prob, value = agent.select_action(state, training=True)
+            action = action_tensor.item()
+
+            next_state, reward, terminated, truncated, _ = env.step(action)
+            done = terminated or truncated
+            current_episode_reward += reward
+
+            # Store transition
+            agent.store_transition(action, reward, terminated)
+
+            if done:
+                episode_rewards.append(current_episode_reward)
+                current_episode_reward = 0.0
+                episode_count += 1
+                next_state, _ = env.reset()
+
+            state = torch.tensor(next_state, dtype=torch.float32, device=device).unsqueeze(0)
+
+        # Learning phase
+        metrics = agent.update()
+
+        avg_reward = np.mean(episode_rewards[-100:]) if episode_rewards else 0.0
+        if plot and reward_plot and loss_plot:
+            if episode_rewards:
+                reward_plot.update("Avg Reward (100)", avg_reward, update)
+            loss_plot.update("Loss", metrics["policy_loss"], update)
+
+        if update % log_interval == 0:
+            logger.info(
+                f"Update {update}/{num_updates} | "
+                f"Steps: {global_step} | "
+                f"Episodes: {episode_count} | "
+                f"Avg(100): {avg_reward:.1f} | "
+                f"Loss: {metrics['policy_loss']:.4f}"
+            )
+
+    env.close()
+
+    if plot:
+        if reward_plot:
+            reward_plot.final_save(f"{save_dir}/{env_name}_ppo_custom_reward.png")
+            reward_plot.close()
+        if loss_plot:
+            loss_plot.final_save(f"{save_dir}/{env_name}_ppo_custom_loss.png")
+            loss_plot.close()
+
+    return agent
+
+
 @click.command()
-@click.option("--algorithm", type=click.Choice(["dqn", "ppo"]), default="dqn", help="Algorithm to use")
+@click.option("--algorithm", type=click.Choice(["dqn", "ppo", "ppo_custom"]), default="dqn", help="Algorithm to use")
 @click.option("--env", default="CartPole-v1", help="Environment name")
 @click.option("--device", default="cuda" if torch.cuda.is_available() else "cpu", help="Device")
 @click.option("--save-dir", default="checkpoints", help="Directory to save models")
@@ -275,7 +374,7 @@ def main(**kwargs) -> None:
     gym.register_envs(ale_py)
 
     if kwargs["algorithm"] == "dqn":
-        agent = train_dqn(
+        agent = train_dqn(  # type: ignore
             kwargs["env"],
             kwargs["episodes"],
             kwargs["batch_size"],
@@ -292,8 +391,8 @@ def main(**kwargs) -> None:
             kwargs["seed"],
             kwargs["plot"],
         )
-    else:
-        agent = train_ppo(
+    elif kwargs["algorithm"] == "ppo":
+        agent = train_ppo(  # type: ignore
             kwargs["env"],
             kwargs["total_timesteps"],
             kwargs["n_steps"],
@@ -312,6 +411,25 @@ def main(**kwargs) -> None:
             kwargs["seed"],
             kwargs["plot"],
         )
+    elif kwargs["algorithm"] == "ppo_custom":
+        agent = train_ppo_custom(  # type: ignore
+            kwargs["env"],
+            kwargs["total_timesteps"],
+            kwargs["n_steps"],
+            kwargs["lr"],
+            kwargs["gamma"],
+            kwargs["gae_lambda"],
+            kwargs["clip_epsilon"],
+            kwargs["value_coef"],
+            kwargs["entropy_coef"],
+            kwargs["device"],
+            kwargs["save_dir"],
+            kwargs["log_interval"],
+            kwargs["seed"],
+            kwargs["plot"],
+        )
+    else:
+        raise ValueError(f"Unknown algorithm: {kwargs['algorithm']}")
 
     model_path = save_path / f"{kwargs['algorithm']}_final.pt"
     agent.save(str(model_path))

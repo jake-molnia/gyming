@@ -51,7 +51,7 @@ class PPOAgent:
 
     def compute_gae(self, buffer: RolloutBuffer) -> tuple[torch.Tensor, torch.Tensor]:
         """Compute Generalized Advantage Estimation"""
-        advantages = []
+        advantages = []  # type: ignore
         gae = 0.0
 
         # Add terminal value of 0
