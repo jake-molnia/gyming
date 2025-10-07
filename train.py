@@ -1,3 +1,4 @@
+import json
 import logging
 import random
 from pathlib import Path
@@ -136,12 +137,25 @@ def train_ppo(
     log_interval: int,
     seed: int | None,
     plot: bool = False,
+    use_inn: bool = False,
+    inn_config: str | None = None,
+    policy_config: str | None = None,
+    value_config: str | None = None,
 ) -> PPOAgent:
     """Train PPO agent following the 37 implementation details"""
     logger.info(f"Training PPO on {env_name}")
 
     reward_plot = LivePlot("PPO - Episode Rewards") if plot else None
     loss_plot = LivePlot("PPO - Training Loss") if plot else None
+
+    inn_cfg = json.loads(inn_config) if inn_config else {}
+    policy_cfg = json.loads(policy_config) if policy_config else inn_cfg
+    value_cfg = json.loads(value_config) if value_config else inn_cfg
+
+    if use_inn:
+        logger.info("Using INN networks")
+        logger.info(f"Policy config: {policy_cfg}")
+        logger.info(f"Value config: {value_cfg}")
 
     # Create vectorized environments
     def make_env():
@@ -157,7 +171,20 @@ def train_ppo(
     n_observations = envs.single_observation_space.shape[0]
     n_actions = envs.single_action_space.n
 
-    agent = PPOAgent(n_observations, n_actions, lr, gamma, gae_lambda, clip_epsilon, value_coef, entropy_coef, device)
+    agent = PPOAgent(
+        n_observations,
+        n_actions,
+        lr,
+        gamma,
+        gae_lambda,
+        clip_epsilon,
+        value_coef,
+        entropy_coef,
+        device,
+        use_inn=use_inn,
+        policy_config=policy_cfg,
+        value_config=value_cfg,
+    )
     buffer = RolloutBuffer()
 
     global_step = 0
@@ -362,6 +389,11 @@ def train_ppo_custom(
 @click.option("--clip-epsilon", default=0.2, help="PPO clip epsilon")
 @click.option("--value-coef", default=0.5, help="Value loss coefficient (PPO)")
 @click.option("--entropy-coef", default=0.01, help="Entropy coefficient (PPO)")
+# INN specific
+@click.option("--use-inn", is_flag=True, help="Use INN networks")
+@click.option("--inn-config", default=None, help="Global INN config as JSON string")
+@click.option("--policy-config", default=None, help="Policy head config as JSON string")
+@click.option("--value-config", default=None, help="Value head config as JSON string")
 def main(**kwargs) -> None:
     """Train RL agent on Gymnasium environment"""
     if kwargs["seed"] is not None:
@@ -410,6 +442,10 @@ def main(**kwargs) -> None:
             kwargs["log_interval"],
             kwargs["seed"],
             kwargs["plot"],
+            kwargs["use_inn"],
+            kwargs["inn_config"],
+            kwargs["policy_config"],
+            kwargs["value_config"],
         )
     elif kwargs["algorithm"] == "ppo_custom":
         agent = train_ppo_custom(  # type: ignore

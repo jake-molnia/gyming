@@ -15,10 +15,11 @@ authors = [
 keywords = []
 classifiers = []
 dependencies = [
-    "click>=8.3.0",
+    "click>=8.1.0",
     "gymnasium[accept-rom-license,atari,box2d,classic-control,other]>=1.2.1",
-    "matplotlib>=3.10.6",
-    "torch>=2.8.0",
+    "iterativennsimple",
+    "matplotlib>=3.9",
+    "torch>=2.5.1",
 ]
 
 [tool.setuptools.packages.find]
@@ -71,3 +72,6 @@ quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
+
+[tool.uv.sources]
+iterativennsimple = { git = "https://github.com/jake-molnia/iterativennsimple.git" }

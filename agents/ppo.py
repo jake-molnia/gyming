@@ -4,6 +4,7 @@ import torch.optim as optim
 from torch.distributions import Categorical
 
 from utils.buffers import RolloutBuffer
+from utils.inn_networks import INNActorCritic
 from utils.networks import ActorCritic
 
 
@@ -21,6 +22,9 @@ class PPOAgent:
         value_coef: float,
         entropy_coef: float,
         device: str | torch.device,
+        use_inn: bool = False,
+        policy_config: dict | None = None,
+        value_config: dict | None = None,
     ) -> None:
         self.n_actions = n_actions
         self.gamma = gamma
@@ -29,8 +33,18 @@ class PPOAgent:
         self.value_coef = value_coef
         self.entropy_coef = entropy_coef
         self.device = device
+        self.use_inn = use_inn
+        if use_inn:
+            self.actor_critic = INNActorCritic(
+                n_observations=n_observations,
+                n_actions=n_actions,
+                policy_config=policy_config or {},
+                value_config=value_config or {},
+                device=self.device,
+            )
+        else:
+            self.actor_critic = ActorCritic(n_observations, n_actions).to(device)
 
-        self.actor_critic = ActorCritic(n_observations, n_actions).to(device)
         self.optimizer = optim.Adam(self.actor_critic.parameters(), lr=lr)
 
     def select_action(self, state: torch.Tensor, training: bool = True) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
