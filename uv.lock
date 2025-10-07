@@ -168,6 +168,7 @@ source = { editable = "." }
 dependencies = [
     { name = "click" },
     { name = "gymnasium", extra = ["atari", "box2d", "classic-control", "other"] },
+    { name = "matplotlib" },
     { name = "torch" },
 ]
 
@@ -182,6 +183,7 @@ dev = [
 requires-dist = [
     { name = "click", specifier = ">=8.3.0" },
     { name = "gymnasium", extras = ["accept-rom-license", "atari", "box2d", "classic-control", "other"], specifier = ">=1.2.1" },
+    { name = "matplotlib", specifier = ">=3.10.6" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.11.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6.0" },

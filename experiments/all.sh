@@ -149,7 +149,7 @@ uv run train.py \
     2>&1 | tee $LOG_DIR/ppo_mountaincar.log
 
 # =============================================================================
-# LUNARLANDER-V2 (DISCRETE)
+# LUNARLANDER-V3 (DISCRETE)
 # =============================================================================
 uv run train.py \
     --algorithm dqn \

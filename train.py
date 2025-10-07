@@ -9,7 +9,7 @@ import numpy as np
 import torch
 
 from agents import DQNAgent, PPOAgent
-from utils import ReplayMemory, RolloutBuffer, record_video
+from utils import LivePlot, ReplayMemory, RolloutBuffer, record_video
 
 logging.basicConfig(level=logging.INFO, format="%(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 logger = logging.getLogger(__name__)
@@ -30,9 +30,13 @@ def train_dqn(
     save_dir: str,
     log_interval: int,
     seed: int | None,
+    plot: bool = False,
 ) -> DQNAgent:
     """Train DQN agent"""
     logger.info(f"Training DQN on {env_name}")
+
+    reward_plot = LivePlot("DQN - Episode Rewards") if plot else None
+    loss_plot = LivePlot("DQN - Training Loss") if plot else None
 
     env = gym.make(env_name)
     if seed is not None:
@@ -83,6 +87,12 @@ def train_dqn(
         avg_loss = np.mean(losses) if losses else 0.0
         avg_reward_100 = np.mean(episode_rewards[-100:]) if episode_rewards else 0.0
 
+        if plot and reward_plot and loss_plot:
+            reward_plot.update("Episode Reward", episode_reward, episode)
+            reward_plot.update("Avg Reward (100)", avg_reward_100, episode)
+            if losses:
+                loss_plot.update("Loss", avg_loss, episode)
+
         if len(episode_rewards) >= 100 and avg_reward_100 > best_avg_reward:
             best_avg_reward = avg_reward_100
 
@@ -96,6 +106,15 @@ def train_dqn(
             )
 
     env.close()
+
+    if plot:
+        if reward_plot:
+            reward_plot.final_save(f"{save_dir}/{env_name}_dqn_reward.png")
+            reward_plot.close()
+        if loss_plot:
+            loss_plot.final_save(f"{save_dir}/{env_name}_dqn_loss.png")
+            loss_plot.close()
+
     return agent
 
 
@@ -116,9 +135,13 @@ def train_ppo(
     save_dir: str,
     log_interval: int,
     seed: int | None,
+    plot: bool = False,
 ) -> PPOAgent:
     """Train PPO agent following the 37 implementation details"""
     logger.info(f"Training PPO on {env_name}")
+
+    reward_plot = LivePlot("PPO - Episode Rewards") if plot else None
+    loss_plot = LivePlot("PPO - Training Loss") if plot else None
 
     # Create vectorized environments
     def make_env():
@@ -177,6 +200,14 @@ def train_ppo(
         metrics = agent.update(buffer, n_epochs, batch_size)
         buffer.clear()
 
+        avg_reward = np.mean(episode_rewards[-100:]) if episode_rewards else 0.0
+        if plot and reward_plot and loss_plot:
+            if episode_rewards:
+                reward_plot.update("Avg Reward (100)", avg_reward, update)
+            loss_plot.update("Policy Loss", metrics["policy_loss"], update)
+            loss_plot.update("Value Loss", metrics["value_loss"], update)
+            loss_plot.update("Entropy", metrics["entropy"], update)
+
         # Logging
         if update % log_interval == 0:
             avg_reward = np.mean(episode_rewards[-100:]) if episode_rewards else 0.0
@@ -191,6 +222,15 @@ def train_ppo(
             )
 
     envs.close()
+
+    if plot:
+        if reward_plot:
+            reward_plot.final_save(f"{save_dir}/{env_name}_ppo_reward.png")
+            reward_plot.close()
+        if loss_plot:
+            loss_plot.final_save(f"{save_dir}/{env_name}_ppo_losses.png")
+            loss_plot.close()
+
     return agent
 
 
@@ -203,6 +243,7 @@ def train_ppo(
 @click.option("--seed", default=None, type=int, help="Random seed")
 @click.option("--record-video", is_flag=True, help="Record video after training")
 @click.option("--video-dir", default="videos", help="Video directory")
+@click.option("--plot", is_flag=True, help="Enable live plotting")
 # DQN specific
 @click.option("--episodes", default=600, help="Number of training episodes (DQN)")
 @click.option("--batch-size", default=128, help="Batch size")
@@ -249,6 +290,7 @@ def main(**kwargs) -> None:
             kwargs["save_dir"],
             kwargs["log_interval"],
             kwargs["seed"],
+            kwargs["plot"],
         )
     else:
         agent = train_ppo(
@@ -268,6 +310,7 @@ def main(**kwargs) -> None:
             kwargs["save_dir"],
             kwargs["log_interval"],
             kwargs["seed"],
+            kwargs["plot"],
         )
 
     model_path = save_path / f"{kwargs['algorithm']}_final.pt"
