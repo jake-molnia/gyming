@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=80.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -16,7 +16,7 @@ keywords = []
 classifiers = []
 dependencies = [
     "click>=8.3.0",
-    "gymnasium[classic-control,other]>=1.2.1",
+    "gymnasium[accept-rom-license,atari,box2d,classic-control,other]>=1.2.1",
     "torch>=2.8.0",
 ]
 

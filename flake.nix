@@ -27,6 +27,7 @@
           buildInputs = [
             pkgs.just
             pkgs.uv
+            pkgs.swig # required by box-2d gymnasium
           ];
 
           shellHook = ''
