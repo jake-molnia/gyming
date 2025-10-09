@@ -17,6 +17,7 @@ classifiers = []
 dependencies = [
     "click>=8.1.0",
     "gymnasium[accept-rom-license,atari,box2d,classic-control,other]>=1.2.1",
+    "huggingface-hub[cli]>=0.35.3",
     "iterativennsimple",
     "matplotlib>=3.9",
     "torch>=2.5.1",
